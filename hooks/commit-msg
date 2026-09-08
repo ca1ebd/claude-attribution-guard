@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Blocks a commit whose message contains Claude Code attribution.
+# Runs at the `commit-msg` git hook stage — see ../README.md for setup.
+set -euo pipefail
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$dir/lib.sh"
+
+msg_file="$1"
+
+if grep -qE "$CLAUDE_ATTRIBUTION_PATTERN" "$msg_file"; then
+  echo "commit-msg: blocked — commit message contains Claude Code attribution." >&2
+  echo "Remove the Co-Authored-By / Claude-Session / \"Generated with Claude Code\" line(s) and try again." >&2
+  exit 1
+fi

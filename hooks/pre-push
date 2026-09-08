@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Blocks pushing any commit whose message contains Claude Code attribution.
+# Backstop for commits that got a bad message another way (amend, rebase,
+# cherry-pick from elsewhere, or a local --no-verify commit). Runs at the
+# `pre-push` git hook stage — see ../README.md for setup.
+#
+# Two calling conventions, detected automatically:
+#  - Raw git pre-push hook: git provides the push range on stdin, as lines
+#    of "<local ref> <local sha> <remote ref> <remote sha>".
+#  - Under the pre-commit framework: pre-commit does NOT forward that
+#    stdin to hook entries (verified empirically — it arrives empty), and
+#    silently skips a pre-push-stage hook entirely unless it's marked
+#    `always_run: true` (see ../.pre-commit-hooks.yaml). Instead it exposes
+#    the single push range via PRE_COMMIT_FROM_REF / PRE_COMMIT_TO_REF.
+set -euo pipefail
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$dir/lib.sh"
+
+zero="0000000000000000000000000000000000000000"
+bad_commits=""
+
+check_range() {
+  local range=("$@")
+  while read -r sha; do
+    [ -z "$sha" ] && continue
+    if git log -1 --format='%B' "$sha" | grep -qE "$CLAUDE_ATTRIBUTION_PATTERN"; then
+      bad_commits="$bad_commits$sha $(git log -1 --format='%s' "$sha")"$'\n'
+    fi
+  done < <(git log "${range[@]}" --format='%H')
+}
+
+if [ -n "${PRE_COMMIT_TO_REF:-}" ]; then
+  from="${PRE_COMMIT_FROM_REF:-$zero}"
+  to="$PRE_COMMIT_TO_REF"
+  if [ "$from" = "$zero" ]; then
+    check_range "$to" --not --remotes
+  else
+    check_range "$from..$to"
+  fi
+else
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue # deleting a ref, nothing to check
+
+    if [ "$remote_sha" = "$zero" ]; then
+      check_range "$local_sha" --not --remotes
+    else
+      check_range "$remote_sha..$local_sha"
+    fi
+  done
+fi
+
+if [ -n "$bad_commits" ]; then
+  echo "pre-push: blocked — the following commit(s) contain Claude Code attribution:" >&2
+  echo "$bad_commits" >&2
+  echo "Fix with 'git commit --amend' or a rebase before pushing." >&2
+  exit 1
+fi
