@@ -35,6 +35,29 @@ pre-commit install --hook-type commit-msg --hook-type pre-push
 these hooks run at `commit-msg` and `pre-push`, so both `--hook-type` flags
 are needed.)
 
+## What about the `attribution` setting?
+
+Claude Code has an official `attribution` setting in `settings.json`
+(`attribution.commit`, `attribution.pr`, `attribution.sessionUrl`) that's
+documented to suppress exactly this. Set it too — it costs nothing:
+
+```json
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}
+```
+
+But as of Claude Code v2.1.85 it doesn't reliably work:
+[claude-code#45137](https://github.com/anthropics/claude-code/issues/45137)
+reports `attribution.commit: ""` failing to suppress the `Co-Authored-By`
+trailer, closed **"not planned."** That's what this tool is actually for —
+enforcement that doesn't depend on Claude Code's internal behavior at all,
+since it just checks the literal commit text after the fact.
+
 ## Without pre-commit
 
 The two scripts under `hooks/` are plain POSIX-ish shell and work as raw git
