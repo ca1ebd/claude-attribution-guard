@@ -1,0 +1,19 @@
+- id: no-claude-attribution-commit-msg
+  name: Block Claude Code attribution in commit messages
+  description: >-
+    Blocks a commit whose message contains Claude Code's Co-Authored-By /
+    Claude-Session trailers, or a "Generated with Claude Code" footer.
+  entry: hooks/commit-msg
+  language: script
+  stages: [commit-msg]
+
+- id: no-claude-attribution-pre-push
+  name: Block pushing commits with Claude Code attribution
+  description: >-
+    Backstop for commits that got a Claude Code attribution message another
+    way (amend, rebase, cherry-pick, or a local --no-verify commit).
+  entry: hooks/pre-push
+  language: script
+  stages: [pre-push]
+  always_run: true
+  pass_filenames: false
